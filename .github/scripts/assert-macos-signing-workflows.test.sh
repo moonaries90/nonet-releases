@@ -212,10 +212,12 @@ path = ARGV.fetch(0)
 text = File.binread(path)
 needle = <<'YAML'
           /bin/bash --noprofile --norc -p \
-            scripts/package-desktop.sh "$RELEASE_DIR" "$PACKAGE_OUT"
+            scripts/package-desktop.sh --github-hosted-toolchain \
+              "$RELEASE_DIR" "$PACKAGE_OUT"
 YAML
 replacement = <<'YAML'
-          bash scripts/package-desktop.sh "$RELEASE_DIR" "$PACKAGE_OUT"
+          bash scripts/package-desktop.sh --github-hosted-toolchain \
+            "$RELEASE_DIR" "$PACKAGE_OUT"
 YAML
 abort "plain-release-package fixture anchor missing" unless text.sub!(needle, replacement)
 File.binwrite(path, text)
@@ -228,12 +230,54 @@ ruby - "$plain_build_package_fixture/.github/workflows/build-macos.yml" <<'RUBY'
 path = ARGV.fetch(0)
 text = File.binread(path)
 abort "plain-build-package fixture anchor missing" unless text.sub!(
-  "run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh",
-  "run: bash scripts/package-desktop-local.sh"
+  "run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh --github-hosted-toolchain",
+  "run: bash scripts/package-desktop-local.sh --github-hosted-toolchain"
 )
 File.binwrite(path, text)
 RUBY
 expect_failure plain-build-package \
   bash "$plain_build_package_fixture/.github/scripts/assert-macos-signing-workflows.sh"
+
+missing_ci_profile_fixture="$(make_fixture missing-ci-profile)"
+ruby - "$missing_ci_profile_fixture/.github/workflows/release-desktop.yml" <<'RUBY'
+path = ARGV.fetch(0)
+text = File.binread(path)
+needle = <<'YAML'
+            scripts/package-desktop.sh --github-hosted-toolchain \
+YAML
+replacement = <<'YAML'
+            scripts/package-desktop.sh \
+YAML
+abort "missing-ci-profile fixture anchor missing" unless text.sub!(needle, replacement)
+File.binwrite(path, text)
+RUBY
+expect_failure missing-ci-profile \
+  bash "$missing_ci_profile_fixture/.github/scripts/assert-macos-signing-workflows.sh"
+
+floating_node_fixture="$(make_fixture floating-node)"
+ruby - "$floating_node_fixture/.github/workflows/release-desktop.yml" <<'RUBY'
+path = ARGV.fetch(0)
+text = File.binread(path)
+abort "floating-node fixture anchor missing" unless text.sub!(
+  "          node-version: 25.9.0",
+  "          node-version: 25"
+)
+File.binwrite(path, text)
+RUBY
+expect_failure floating-node \
+  bash "$floating_node_fixture/.github/scripts/assert-macos-signing-workflows.sh"
+
+floating_rust_fixture="$(make_fixture floating-rust)"
+ruby - "$floating_rust_fixture/.github/workflows/release-desktop.yml" <<'RUBY'
+path = ARGV.fetch(0)
+text = File.binread(path)
+abort "floating-rust fixture anchor missing" unless text.sub!(
+  "uses: dtolnay/rust-toolchain@1.96.0",
+  "uses: dtolnay/rust-toolchain@stable"
+)
+File.binwrite(path, text)
+RUBY
+expect_failure floating-rust \
+  bash "$floating_rust_fixture/.github/scripts/assert-macos-signing-workflows.sh"
 
 echo 'assert-macos-signing-workflows.test: passed'

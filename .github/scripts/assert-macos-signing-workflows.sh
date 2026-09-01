@@ -43,6 +43,8 @@ ruby "$ROOT/.github/scripts/assert-macos-signing-workflows.rb" "$release_workflo
 
 regression_job="$(sed -n '/^  macos-signing-regression:/,/^  [[:alnum:]_-]*:/p' \
   "$release_workflow")"
+export_job="$(sed -n '/^  export-mac:/,/^  [[:alnum:]_-]*:/p' \
+  "$release_workflow")"
 production_job="$(sed -n '/^  package-mac:/,/^  [[:alnum:]_-]*:/p' \
   "$release_workflow")"
 active_contract_step="$(sed -n \
@@ -80,13 +82,29 @@ grep -Fq 'dmgSha256' <<<"$production_job" \
   || fail "production macOS evidence does not bind the DMG digest"
 grep -Fq '/bin/bash --noprofile --norc -p \' <<<"$production_job" \
   || fail "production macOS packaging does not enter privileged Bash"
-grep -Fq 'scripts/package-desktop.sh "$RELEASE_DIR" "$PACKAGE_OUT"' <<<"$production_job" \
+grep -Fq 'scripts/package-desktop.sh --github-hosted-toolchain \' <<<"$production_job" \
+  || fail "production macOS packaging does not select the reviewed GitHub toolchain profile"
+grep -Fq '"$RELEASE_DIR" "$PACKAGE_OUT"' <<<"$production_job" \
   || fail "production macOS packaging bypasses the canonical package script"
+for job in "$export_job" "$production_job"; do
+  grep -Fq 'node-version: 25.9.0' <<<"$job" \
+    || fail "macOS release job does not pin reviewed Node"
+  grep -Fq 'npm install --global npm@11.12.1 --ignore-scripts --no-audit --no-fund' <<<"$job" \
+    || fail "macOS release job does not pin reviewed npm"
+  grep -Fq 'uses: dtolnay/rust-toolchain@1.96.0' <<<"$job" \
+    || fail "macOS release job does not pin reviewed Rust"
+done
 
 build_workflow="$ROOT/.github/workflows/build-macos.yml"
-grep -Fq 'run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh' \
+grep -Fq 'run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh --github-hosted-toolchain' \
   "$build_workflow" \
   || fail "non-publishable macOS packaging does not enter privileged Bash"
+grep -Fq 'node-version: 25.9.0' "$build_workflow" \
+  || fail "non-publishable macOS build does not pin reviewed Node"
+grep -Fq 'npm install --global npm@11.12.1 --ignore-scripts --no-audit --no-fund' "$build_workflow" \
+  || fail "non-publishable macOS build does not pin reviewed npm"
+grep -Fq 'uses: dtolnay/rust-toolchain@1.96.0' "$build_workflow" \
+  || fail "non-publishable macOS build does not pin reviewed Rust"
 
 provenance_script="$ROOT/.github/scripts/production-macos-signing.sh"
 exact_main_line='  [[ "$actual_sha" == "$main_sha" ]] \'

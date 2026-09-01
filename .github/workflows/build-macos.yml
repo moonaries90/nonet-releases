@@ -41,14 +41,18 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 25.9.0
           cache: npm
           cache-dependency-path: |
             nonet/apps/desktop/package-lock.json
             nonet/packages/claude-sdk-agent/package-lock.json
 
+      - name: Pin reviewed npm
+        shell: bash
+        run: npm install --global npm@11.12.1 --ignore-scripts --no-audit --no-fund
+
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.96.0
         with:
           targets: aarch64-apple-darwin
 
@@ -75,7 +79,7 @@ jobs:
         working-directory: nonet
         env:
           NONET_CO_HOME: ${{ runner.temp }}/nonet-home
-        run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh
+        run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh --github-hosted-toolchain
 
       - name: Verify non-publishable app, DMG, architecture, and checksums
         shell: bash

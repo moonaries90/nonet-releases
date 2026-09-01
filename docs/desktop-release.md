@@ -57,6 +57,14 @@ inside the assembly and feed-signing jobs from
 remove the decoded key on exit, and unset the secret after decoding. The
 private source is read through the read-only `MATRIX_CO_SOURCE_DEPLOY_KEY`.
 
+The macOS export and package jobs use Nonet's explicit GitHub-hosted toolchain
+profile. The workflows pin Node 25.9.0, npm 11.12.1, and Rust/Cargo 1.96.0;
+the source verifier also requires a GitHub-hosted macOS 15 arm64 context, an
+Apple-signed selected Xcode, and the reviewed Tauri identities after `npm ci`.
+This is deliberately separate from the developer-machine byte lock: one Mac's
+OS, dyld cache, Homebrew paths, and account-home bytes are not valid identities
+for a rotating hosted runner image.
+
 Find and watch the dispatched run:
 
 ```bash
