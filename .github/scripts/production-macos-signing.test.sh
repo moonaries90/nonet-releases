@@ -13,8 +13,30 @@ repo="$test_root/source"
 git init -q -b main "$repo"
 git -C "$repo" config user.name 'Nonet Provenance Test'
 git -C "$repo" config user.email 'provenance-test@nonet.invalid'
+mkdir -p "$repo/scripts"
+cat > "$repo/scripts/macos-signing-keychain.sh" <<'SCRIPT'
+#!/bin/bash -p
+[[ $- == *p* ]] || { printf '%s\n' 'fixture requires privileged Bash' >&2; exit 1; }
+case "${1:-}" in
+  setup)
+    state_dir="${RUNNER_TEMP:?}/nonet-desktop-signing"
+    mkdir -m 0700 "$state_dir"
+    printf 'NONET_MACOS_SIGNING_STATE_DIR=%q\n' "$state_dir" > "$state_dir/signing.env"
+    printf 'NONET_MACOS_SIGNING_CERT_SHA1=%s\n' '1111111111111111111111111111111111111111' >> "$state_dir/signing.env"
+    printf 'NONET_MACOS_SIGNING_CERT_SHA256=%s\n' "${NONET_MACOS_SIGNING_CERT_SHA256:?}" >> "$state_dir/signing.env"
+    printf 'setup_mode=%s\n' "$-" >> "$RUNNER_TEMP/helper-modes.log"
+    printf '%s\n' "$state_dir/signing.env"
+    ;;
+  cleanup)
+    printf 'cleanup_mode=%s\n' "$-" >> "$RUNNER_TEMP/helper-modes.log"
+    rm -rf -- "${2:?state directory is required}"
+    ;;
+  *) exit 2 ;;
+esac
+SCRIPT
+chmod +x "$repo/scripts/macos-signing-keychain.sh"
 printf 'old main\n' > "$repo/payload.txt"
-git -C "$repo" add payload.txt
+git -C "$repo" add payload.txt scripts/macos-signing-keychain.sh
 git -C "$repo" commit -q -m old-main
 old_main_sha="$(git -C "$repo" rev-parse HEAD)"
 printf 'current main\n' > "$repo/payload.txt"
@@ -41,6 +63,26 @@ expect_failure() {
 
 GIT_SSH_COMMAND=/usr/bin/false verify "$main_sha" >/dev/null
 echo 'valid-exact-main-offline-checkout=passed'
+
+runner_temp="$test_root/runner"
+github_env="$test_root/github.env"
+mkdir -m 0700 "$runner_temp"
+touch "$github_env"
+SOURCE_DIR="$repo" REQUESTED_SOURCE_SHA="$main_sha" \
+RUNNER_TEMP="$runner_temp" GITHUB_ENV="$github_env" \
+NONET_MACOS_SIGNING_P12_B64='Zml4dHVyZQ==' \
+NONET_MACOS_SIGNING_P12_PASSWORD='fixture-password' \
+NONET_MACOS_SIGNING_CERT_SHA256='2222222222222222222222222222222222222222222222222222222222222222' \
+  bash "$verifier" setup >/dev/null
+grep -Eq '^setup_mode=.*p' "$runner_temp/helper-modes.log"
+[[ ! -e "$runner_temp/nonet-signing-input" ]]
+SOURCE_DIR="$repo" RUNNER_TEMP="$runner_temp" \
+NONET_MACOS_SIGNING_STATE_DIR="$runner_temp/nonet-desktop-signing" \
+  bash "$verifier" cleanup
+grep -Eq '^cleanup_mode=.*p' "$runner_temp/helper-modes.log"
+[[ ! -e "$runner_temp/nonet-desktop-signing" ]]
+echo 'privileged-source-helper-lifecycle=passed'
+
 expect_failure requested-mismatch verify \
   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 

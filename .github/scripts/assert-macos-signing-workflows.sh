@@ -89,6 +89,13 @@ next_line="$(sed -n "$((exact_main_line_number + 1))p" "$provenance_script")"
 [[ "$next_line" == "$exact_failure_line" ]] \
   || fail "production provenance exact-main comparison is not fail closed"
 
+[[ "$(grep -Fc '/bin/bash --noprofile --norc -p \' "$provenance_script" || true)" == "2" ]] \
+  || fail "production signing must invoke both source keychain operations with privileged Bash"
+[[ "$(grep -Fc '"$SOURCE_DIR/scripts/macos-signing-keychain.sh" setup)' "$provenance_script" || true)" == "1" ]] \
+  || fail "production signing setup does not use the centralized source helper"
+[[ "$(grep -Fc '"$SOURCE_DIR/scripts/macos-signing-keychain.sh" cleanup \' "$provenance_script" || true)" == "1" ]] \
+  || fail "production signing cleanup does not use the centralized source helper"
+
 bash "$ROOT/.github/scripts/production-macos-signing.test.sh" >/dev/null
 
 echo "assert-macos-signing-workflows: passed"

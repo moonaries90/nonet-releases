@@ -172,4 +172,38 @@ RUBY
 expect_failure altered-exact-main-variable \
   bash "$altered_variable_fixture/.github/scripts/assert-macos-signing-workflows.sh"
 
+plain_setup_fixture="$(make_fixture plain-signing-setup)"
+ruby - "$plain_setup_fixture/.github/scripts/production-macos-signing.sh" <<'RUBY'
+path = ARGV.fetch(0)
+text = File.binread(path)
+needle = <<'CODE'
+    /bin/bash --noprofile --norc -p \
+      "$SOURCE_DIR/scripts/macos-signing-keychain.sh" setup)"
+CODE
+replacement = <<'CODE'
+    bash "$SOURCE_DIR/scripts/macos-signing-keychain.sh" setup)"
+CODE
+abort "plain-setup fixture anchor missing" unless text.sub!(needle, replacement)
+File.binwrite(path, text)
+RUBY
+expect_failure plain-signing-setup \
+  bash "$plain_setup_fixture/.github/scripts/assert-macos-signing-workflows.sh"
+
+plain_cleanup_fixture="$(make_fixture plain-signing-cleanup)"
+ruby - "$plain_cleanup_fixture/.github/scripts/production-macos-signing.sh" <<'RUBY'
+path = ARGV.fetch(0)
+text = File.binread(path)
+needle = <<'CODE'
+      /bin/bash --noprofile --norc -p \
+        "$SOURCE_DIR/scripts/macos-signing-keychain.sh" cleanup \
+CODE
+replacement = <<'CODE'
+      bash "$SOURCE_DIR/scripts/macos-signing-keychain.sh" cleanup \
+CODE
+abort "plain-cleanup fixture anchor missing" unless text.sub!(needle, replacement)
+File.binwrite(path, text)
+RUBY
+expect_failure plain-signing-cleanup \
+  bash "$plain_cleanup_fixture/.github/scripts/assert-macos-signing-workflows.sh"
+
 echo 'assert-macos-signing-workflows.test: passed'

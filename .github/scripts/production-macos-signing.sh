@@ -88,7 +88,8 @@ setup() {
     NONET_MACOS_SIGNING_P12_FILE="$p12_file" \
     NONET_MACOS_SIGNING_PASSWORD_FILE="$password_file" \
     NONET_MACOS_SIGNING_CERT_SHA256="$NONET_MACOS_SIGNING_CERT_SHA256" \
-    bash "$SOURCE_DIR/scripts/macos-signing-keychain.sh" setup)"
+    /bin/bash --noprofile --norc -p \
+      "$SOURCE_DIR/scripts/macos-signing-keychain.sh" setup)"
   cat "$env_file" >> "$GITHUB_ENV"
   cleanup_inputs
   trap - EXIT INT TERM
@@ -104,7 +105,8 @@ cleanup() {
   : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
   if [[ -n "${NONET_MACOS_SIGNING_STATE_DIR:-}" ]]; then
     RUNNER_TEMP="$RUNNER_TEMP" \
-      bash "$SOURCE_DIR/scripts/macos-signing-keychain.sh" cleanup \
+      /bin/bash --noprofile --norc -p \
+        "$SOURCE_DIR/scripts/macos-signing-keychain.sh" cleanup \
         "$NONET_MACOS_SIGNING_STATE_DIR"
   fi
   rm -f -- "$RUNNER_TEMP/nonet-signing-input/identity.p12" \
