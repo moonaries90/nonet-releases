@@ -75,7 +75,7 @@ jobs:
         working-directory: nonet
         env:
           NONET_CO_HOME: ${{ runner.temp }}/nonet-home
-        run: bash scripts/package-desktop-local.sh
+        run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh
 
       - name: Verify non-publishable app, DMG, architecture, and checksums
         shell: bash

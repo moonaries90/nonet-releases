@@ -78,6 +78,15 @@ grep -Fq 'signing-evidence-macos.txt' <<<"$production_job" \
   || fail "production macOS job does not persist non-secret signing evidence"
 grep -Fq 'dmgSha256' <<<"$production_job" \
   || fail "production macOS evidence does not bind the DMG digest"
+grep -Fq '/bin/bash --noprofile --norc -p \' <<<"$production_job" \
+  || fail "production macOS packaging does not enter privileged Bash"
+grep -Fq 'scripts/package-desktop.sh "$RELEASE_DIR" "$PACKAGE_OUT"' <<<"$production_job" \
+  || fail "production macOS packaging bypasses the canonical package script"
+
+build_workflow="$ROOT/.github/workflows/build-macos.yml"
+grep -Fq 'run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh' \
+  "$build_workflow" \
+  || fail "non-publishable macOS packaging does not enter privileged Bash"
 
 provenance_script="$ROOT/.github/scripts/production-macos-signing.sh"
 exact_main_line='  [[ "$actual_sha" == "$main_sha" ]] \'

@@ -206,4 +206,34 @@ RUBY
 expect_failure plain-signing-cleanup \
   bash "$plain_cleanup_fixture/.github/scripts/assert-macos-signing-workflows.sh"
 
+plain_release_package_fixture="$(make_fixture plain-release-package)"
+ruby - "$plain_release_package_fixture/.github/workflows/release-desktop.yml" <<'RUBY'
+path = ARGV.fetch(0)
+text = File.binread(path)
+needle = <<'YAML'
+          /bin/bash --noprofile --norc -p \
+            scripts/package-desktop.sh "$RELEASE_DIR" "$PACKAGE_OUT"
+YAML
+replacement = <<'YAML'
+          bash scripts/package-desktop.sh "$RELEASE_DIR" "$PACKAGE_OUT"
+YAML
+abort "plain-release-package fixture anchor missing" unless text.sub!(needle, replacement)
+File.binwrite(path, text)
+RUBY
+expect_failure plain-release-package \
+  bash "$plain_release_package_fixture/.github/scripts/assert-macos-signing-workflows.sh"
+
+plain_build_package_fixture="$(make_fixture plain-build-package)"
+ruby - "$plain_build_package_fixture/.github/workflows/build-macos.yml" <<'RUBY'
+path = ARGV.fetch(0)
+text = File.binread(path)
+abort "plain-build-package fixture anchor missing" unless text.sub!(
+  "run: /bin/bash --noprofile --norc -p scripts/package-desktop-local.sh",
+  "run: bash scripts/package-desktop-local.sh"
+)
+File.binwrite(path, text)
+RUBY
+expect_failure plain-build-package \
+  bash "$plain_build_package_fixture/.github/scripts/assert-macos-signing-workflows.sh"
+
 echo 'assert-macos-signing-workflows.test: passed'

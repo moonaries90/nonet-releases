@@ -422,7 +422,8 @@ jobs:
           NONET_REQUIRE_STABLE_MACOS_SIGNING: "1"
         run: |
           set -euo pipefail
-          bash scripts/package-desktop.sh "$RELEASE_DIR" "$PACKAGE_OUT"
+          /bin/bash --noprofile --norc -p \
+            scripts/package-desktop.sh "$RELEASE_DIR" "$PACKAGE_OUT"
 
       - name: Verify macOS package and catalog identity
         shell: bash
